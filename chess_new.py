@@ -86,76 +86,6 @@ def _not(value, *args):
 
 
 class RuleSet:
-    Figures = namedtuple('Figures' , 'type color')
-    width = 8
-    height = 8
-    types = {
-            'pawn': 1,
-            'rook': 2,
-            'knight': 3,
-            'bishop': 4,
-            'queen': 5,
-            'king': 6,
-            }
-    figures = {
-                1:Figures('rook', 'white'),
-                2:Figures('knight', 'white'),
-                3:Figures('bishop', 'white'),
-                4:Figures('queen', 'white'),
-                5:Figures('king', 'white'),
-                6:Figures('bishop', 'white'),
-                7:Figures('knight', 'white'),
-                8:Figures('rook', 'white'),
-                9:Figures('pawn', 'white'),
-                10:Figures('pawn', 'white'),
-                11:Figures('pawn', 'white'),
-                12:Figures('pawn', 'white'),
-                13:Figures('pawn', 'white'),
-                14:Figures('pawn', 'white'),
-                15:Figures('pawn', 'white'),
-                16:Figures('pawn', 'white'),
-
-                17:Figures('pawn', 'black'),
-                18:Figures('pawn', 'black'),
-                19:Figures('pawn', 'black'),
-                20:Figures('pawn', 'black'),
-                21:Figures('pawn', 'black'),
-                22:Figures('pawn', 'black'),
-                23:Figures('pawn', 'black'),
-                24:Figures('pawn', 'black'),
-                25:Figures('rook', 'black'),
-                26:Figures('knight', 'black'),
-                27:Figures('bishop', 'black'),
-                28:Figures('queen', 'black'),
-                29:Figures('king', 'black'),
-                30:Figures('bishop', 'black'),
-                31:Figures('knight', 'black'),
-                32:Figures('rook', 'black'),
-    
-                }
-
-    first_board = [
-                [25,26,27,28,29,30,31,32],
-                [17,18,19,20,21,22,23,24], 
-                [0, 0, 0, 0, 0, 0, 0, 0 ],
-                [0, 0, 0, 0, 0, 0, 0, 0 ],
-                [0, 0, 0, 0, 0, 0, 0, 0 ],
-                [0, 0, 0, 0, 0, 0, 0, 0 ],
-                [9, 10,11,12,13,14,15,16],
-                [1, 2, 3, 4, 5, 6, 7, 8 ],
-    ]
-    board = [row.copy() for row in first_board]
-    board_color = [ #   where # is white and * is black
-                ['#','*','#','*','#','*','#','*'],
-                ['*','#','*','#','*','#','*','#'],
-                ['#','*','#','*','#','*','#','*'],
-                ['*','#','*','#','*','#','*','#'],
-                ['#','*','#','*','#','*','#','*'],
-                ['*','#','*','#','*','#','*','#'],
-                ['#','*','#','*','#','*','#','*'],
-                ['*','#','*','#','*','#','*','#'],
-            ]
- 
     def pawn_transform(self, figure_id, position):
         figure = self.figures[figure_id]
         can_transform = (position.x == (self.height - 1)) or (position.x == 0)
@@ -167,84 +97,156 @@ class RuleSet:
             return new_figure_type
         else:
             return False
- 
-    rules = {'pawn' : {
-                'moves': {
-                    'move' : [V(1,0)], 
-                    'fight': [V(1,-1),V(1,1)], 
-                    'first': [V(2,0)], 
-                    }, 
-                'ghost':False, 
-                'first_move': True,
-                'move&fight': False,
-                'score':10, 
-                'type': 'first', 
-                'transform': pawn_transform, 
-                'k':1,
-                },
-             'rook' : {
-                'moves': {
-                     'move' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
-                     },
-                'ghost':False, 
-                'first_move': True,
-                'move&fight': True,
-                'score':30,
-                'type': 'fast', 
-                'transform': False, 
-                'k':1
-                },                   
-             'knight' : {
-                'moves': {
-                     'move' : [V(2,1),V(2,-1), V(-2,1),V(-2,-1), 
-                                V(1,2),V(1,-2), V(-1,2),V(-1,-2)], 
-                     },
-                'ghost':True, 
-                'first_move': False,
-                'move&fight': True,
-                'step': 'move', 
-                'score':25,
-                'type': 'knight',
-                'transform': False,  
-                'k':1
-                },                  
-             'bishop' : {
-                'moves': {
-                     'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100)], 
-                     },
-                'ghost':False, 
-                'first_move': False,
-                'move&fight': True,
-                'score':25,
-                'type': 'fast', 
-                'transform': False,  
-                'k':1
-                 },                  
-             'queen' : {
-                'moves': {
-                     'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100),
-                                V(-100,0), V(100,0),V(0,-100),V(0,100)], 
-                                },
-                'ghost':False, 
-                'first_move': False,
-                'move&fight': True,
-                'score':100,
-                'type': 'fast', 
-                'transform': False, 
-                'k':1},                  
-             'king' : {
-                'moves': {
-                     'move' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
-                     },
-                'ghost':False, 
-                'first_move': True,
-                'move&fight': True,
-                'score':10000, 
-                'type': 'slow', 
-                'transform': False, 
-                'k':1,
+
+    def __init__(self):
+        self.Figures = namedtuple('Figures' , 'type color')
+        self.width = 8
+        self.height = 8
+        self.types = {
+                'pawn': 1,
+                'rook': 2,
+                'knight': 3,
+                'bishop': 4,
+                'queen': 5,
+                'king': 6,
                 }
-            }  
+        self.figures = {
+                    1:self.Figures('rook', 'white'),
+                    2:self.Figures('knight', 'white'),
+                    3:self.Figures('bishop', 'white'),
+                    4:self.Figures('queen', 'white'),
+                    5:self.Figures('king', 'white'),
+                    6:self.Figures('bishop', 'white'),
+                    7:self.Figures('knight', 'white'),
+                    8:self.Figures('rook', 'white'),
+                    9:self.Figures('pawn', 'white'),
+                    10:self.Figures('pawn', 'white'),
+                    11:self.Figures('pawn', 'white'),
+                    12:self.Figures('pawn', 'white'),
+                    13:self.Figures('pawn', 'white'),
+                    14:self.Figures('pawn', 'white'),
+                    15:self.Figures('pawn', 'white'),
+                    16:self.Figures('pawn', 'white'),
+
+                    17:self.Figures('pawn', 'black'),
+                    18:self.Figures('pawn', 'black'),
+                    19:self.Figures('pawn', 'black'),
+                    20:self.Figures('pawn', 'black'),
+                    21:self.Figures('pawn', 'black'),
+                    22:self.Figures('pawn', 'black'),
+                    23:self.Figures('pawn', 'black'),
+                    24:self.Figures('pawn', 'black'),
+                    25:self.Figures('rook', 'black'),
+                    26:self.Figures('knight', 'black'),
+                    27:self.Figures('bishop', 'black'),
+                    28:self.Figures('queen', 'black'),
+                    29:self.Figures('king', 'black'),
+                    30:self.Figures('bishop', 'black'),
+                    31:self.Figures('knight', 'black'),
+                    32:self.Figures('rook', 'black'),
+        
+                    }
+
+        self.first_board = [
+                    [25,26,27,28,29,30,31,32],
+                    [17,18,19,20,21,22,23,24], 
+                    [0, 0, 0, 0, 0, 0, 0, 0 ],
+                    [0, 0, 0, 0, 0, 0, 0, 0 ],
+                    [0, 0, 0, 0, 0, 0, 0, 0 ],
+                    [0, 0, 0, 0, 0, 0, 0, 0 ],
+                    [9, 10,11,12,13,14,15,16],
+                    [1, 2, 3, 4, 5, 6, 7, 8 ],
+        ]
+
+        self.board = [row.copy() for row in self.first_board]
+        self.board_color = [ #   where # is white and * is black
+                    ['#','*','#','*','#','*','#','*'],
+                    ['*','#','*','#','*','#','*','#'],
+                    ['#','*','#','*','#','*','#','*'],
+                    ['*','#','*','#','*','#','*','#'],
+                    ['#','*','#','*','#','*','#','*'],
+                    ['*','#','*','#','*','#','*','#'],
+                    ['#','*','#','*','#','*','#','*'],
+                    ['*','#','*','#','*','#','*','#'],
+                ]
+    
+        self.rules = {'pawn' : {
+                    'moves': {
+                        'move' : [V(1,0)], 
+                        'fight': [V(1,-1),V(1,1)], 
+                        'first': [V(2,0)], 
+                        }, 
+                    'ghost':False, 
+                    'first_move': True,
+                    'move&fight': False,
+                    'score':10, 
+                    'type': 'first', 
+                    'transform': self.pawn_transform, 
+                    'k':1,
+                    },
+                'rook' : {
+                    'moves': {
+                        'move' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
+                        },
+                    'ghost':False, 
+                    'first_move': True,
+                    'move&fight': True,
+                    'score':30,
+                    'type': 'fast', 
+                    'transform': False, 
+                    'k':1
+                    },                   
+                'knight' : {
+                    'moves': {
+                        'move' : [V(2,1),V(2,-1), V(-2,1),V(-2,-1), 
+                                    V(1,2),V(1,-2), V(-1,2),V(-1,-2)], 
+                        },
+                    'ghost':True, 
+                    'first_move': False,
+                    'move&fight': True,
+                    'step': 'move', 
+                    'score':25,
+                    'type': 'knight',
+                    'transform': False,  
+                    'k':1
+                    },                  
+                'bishop' : {
+                    'moves': {
+                        'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100)], 
+                        },
+                    'ghost':False, 
+                    'first_move': False,
+                    'move&fight': True,
+                    'score':25,
+                    'type': 'fast', 
+                    'transform': False,  
+                    'k':1
+                    },                  
+                'queen' : {
+                    'moves': {
+                        'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100),
+                                    V(-100,0), V(100,0),V(0,-100),V(0,100)], 
+                                    },
+                    'ghost':False, 
+                    'first_move': False,
+                    'move&fight': True,
+                    'score':100,
+                    'type': 'fast', 
+                    'transform': False, 
+                    'k':1},                  
+                'king' : {
+                    'moves': {
+                        'move' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
+                        },
+                    'ghost':False, 
+                    'first_move': True,
+                    'move&fight': True,
+                    'score':10000, 
+                    'type': 'slow', 
+                    'transform': False, 
+                    'k':1,
+                    }
+                }  
 
     def prettify(self, _list=[], true_look=False, hyphens=27, indent=' '):
         if _list == []:
@@ -497,11 +499,18 @@ class RuleSet:
    
 ruleset = RuleSet()
 ruleset.move_figure(V('c2'), V('c6') )
-ruleset.move_figure(11, 19)
+# ruleset.move_figure(11, 19)
 ruleset.prettify()
 ruleset.get_available_step(20, ruleset.board, _print=2)
 
-ruleset.board = ruleset.first_board
+pp.pprint(ruleset.board)
+pp.pprint(ruleset.first_board)
 
+ruleset.board = ruleset.first_board 
 
+ruleset.board
 
+# car = namedtuple('car', 'color type')
+# ca = car('blue', 'cabrio')
+# ca.color = 'white'
+# const = ('q', 'b')
