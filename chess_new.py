@@ -13,12 +13,19 @@ def get_sign(num):
     else:
         return 0
 
+def unsign_max(a,b):
+    m = abs(a)
+    n = abs(b)
+    return max(n,m)
 
 class V:
     x = 0
     y = 0
-    def __init__(self, x, y):
+    def __init__(self, x, y=-1):
         if isinstance(x, str):
+            if y == -1:
+                y = int(x[1:])
+                x = x[0]
             self.y = ord(x) - 97
             self.x = 8 - y
         else:
@@ -137,7 +144,7 @@ class RuleSet:
                 [9, 10,11,12,13,14,15,16],
                 [1, 2, 3, 4, 5, 6, 7, 8 ],
     ]
-    board = first_board.copy()
+    board = [row.copy() for row in first_board]
     board_color = [ #   where # is white and * is black
                 ['#','*','#','*','#','*','#','*'],
                 ['*','#','*','#','*','#','*','#'],
@@ -323,8 +330,22 @@ class RuleSet:
         if board == []:
             board = self.board
         try:
-            board[_from.x][_from.y], board[_to.x][_to.y] = \
-                board[_to.x][_to.y], board[_from.x][_from.y]
+            if not isinstance(_from, V):
+                if _from == 0:
+                    return False
+                _from = self.get_position_by_id(_from)
+            if not isinstance(_to, V):
+                if _to == 0:
+                    return False
+                _to = self.get_position_by_id(_to)
+            print(board[_to.x][_to.y])
+            if board[_to.x][_to.y] == 0 or board[_from.x][_from.y] == 0:
+                board[_from.x][_from.y], board[_to.x][_to.y] = \
+                    board[_to.x][_to.y], board[_from.x][_from.y]
+            else:
+                board[_from.x][_from.y], board[_to.x][_to.y] = \
+                    0, board[_from.x][_from.y]
+
         except Exception:
             return False
         return True
@@ -343,131 +364,111 @@ class RuleSet:
                 pass
 
 
+    def moves_product(self, figure, figure_id, figure_rule, _print, moves, available_moves):
+        if figure.color == 'white':
+            move = move * -1
+        if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
+                # если фигура быстрая (типа туры и офицера)
+                # или быстрая во время первого хода, типа пешки
+            if _print > 4:
+                print('figure_rule[type] == fast', figure_rule['type'])
+            step_x = get_sign(move.x) * figure_rule['k']
+            step_y = get_sign(move.y) * figure_rule['k']
+            steps = int(unsign_max(move.y, move.x) / figure_rule['k'])
+            step = V(step_x, step_y)
+        else:
+            steps = 1
+            step = move
+        if _print > 6:
+            print(move)
+            print('steps, step, figure_rule[k]', steps, step, figure_rule['k'])
+            print(figure_rule['type'])
+
+        for i in range(1, steps+1):
+            move = step * i * figure_rule['k']
+            new_position = position+move
+            if self.is_position_valid(new_position):
+                if figure_rule['moves'].get('fight'):
+                    res = self.if_can_beat(figure_id, new_position)
+                    if _print > 4:
+                        print('can beat', res)
+                if figure_rule['move&fight']:
+                    res = self.if_can_move_or_beat(figure_id, new_position)
+                    if _print > 4:
+                        print('move&fight', res)
+                else:
+                    res = self.if_can_move(new_position)
+                    if _print > 4:
+                        print('can move', res)
+                if _print > 4:
+                    print(position, new_position, 'new_position move')
+                    print('figure to move', self.get_id_by_pos(position), self.get_id_by_pos(new_position))
+                    
+                if res:
+                    if _print > 1:
+                        self.move_figure(position, new_position)
+                    if _print > 6:
+                        pp.pprint(self.board)
+                        self.prettify(true_look=True)
+                    if _print > 1:
+                        self.prettify()
+                        self.move_figure(new_position, position)
+                    available_moves['to'].append(new_position)
+                    
 
     def get_available_step(self, figure_id, board, _print=0):
+        figure = self.figures[figure_id]
+        position = self.get_position_by_id(figure_id)
         available_moves = {}
         available_moves['to'] = []
         available_moves['from'] = position
-        figure = self.figures[figure_id]
-        position = self.get_position_by_id(figure_id)
         figure_rule = self.rules[figure.type]
+        moves_list = []
         if figure_rule['first_move'] and self.is_first_move(position):
-            moves = 'first' 
+            moves_list.append('first') 
             # режим действия, если на первом ходу фигуры действуют особые условия
         else:
-            moves = 'move'
+            moves_list.append('move') 
         if _print > 2:
+            self.prettify(true_look=True)
             self.prettify()
             if _print > 4:
                 print(figure_id, figure.type, figure.color)
                 print(figure_rule)
                 print('first move')
-                print('in move or first', moves, figure_rule['moves'][moves])
-        for move in figure_rule['moves'][moves]:
-            if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
-                    # если фигура быстрая (типа туры и офицера)
-                    # или быстрая во время первого хода, типа пешки
-                if _print > 4:
-                    print('figure_rule[type] == fast', figure_rule['type'])
-                step_x = get_sign(move.x) * figure_rule['k']
-                step_y = get_sign(move.y) * figure_rule['k']
-                steps = int(max(move.y, move.x) / figure_rule['k'])
-                step = V(step_x, step_y)
-            else:
-                steps = 1
-                step = move
-            if _print > 6:
-                print(move)
-                print('steps, step, figure_rule[k]', steps, step, figure_rule['k'])
-                print(figure_rule['type'])
-
-            for i in range(1, steps+1):
-                move = step * i * figure_rule['k']
-                new_position = position+move
-                if self.is_position_valid(new_position):
-                    if figure_rule['moves'].get('fight'):
-                        res = self.if_can_beat(figure_id, new_position)
-                        if _print > 4:
-                            print('can beat', res)
-                    if figure_rule['move&fight']:
-                        res = self.if_can_move_or_beat(figure_id, new_position)
-                        if _print > 4:
-                            print('move&fight', res)
-                    else:
-                        res = self.if_can_move(new_position)
-                        if _print > 4:
-                            print('can move', res)
-                    if res:
-                        if _print > 1:
-                            self.move_figure(position, new_position)
-                        if _print > 4:
-                            print(position, new_position, 'new_position move')
-                            print('figure to move', self.get_id_by_pos(position), self.get_id_by_pos(new_position))
-                        if _print > 6:
-                            pp.pprint(self.board)
-                            self.prettify(true_look=True)
-                        if _print > 1:
-                            self.prettify()
-                            self.move_figure(new_position, position)
-                        available_moves['to'].append(new_position)
-                            
-        return available_moves
-
-
-    def get_available_step(self, figure_id, board, _print=0):
-        available_moves = {}
-        available_moves['to'] = []
-        figure = self.figures[figure_id]
-        position = self.get_position_by_id(figure_id)
-        available_moves['from'] = position
-        figure_rule = self.rules[figure.type]
-        if _print > 4:
-            print(figure_id, figure.type, figure.color)
-            print(figure_rule)
-        
-        if figure_rule['first_move'] and self.is_first_move(position):
-            moves = 'first' 
-            if _print > 4:
-                print('first move')
-        else:
-            moves = 'move'
-        if _print > 1:
-            self.prettify()
-
-        if moves == 'move' or moves == 'first':
-            if _print > 4:
-                print('in move or first', moves, figure_rule['moves'][moves])
+        if figure_rule['moves'].get('fight'):
+            moves_list.append('fight')
+        for moves in moves_list:
             for move in figure_rule['moves'][moves]:
-                if _print > 6:
-                    print(move)
+                if figure.color == 'white':
+                    move = move * -1
                 if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
+                        # если фигура быстрая (типа туры и офицера)
+                        # или быстрая во время первого хода, типа пешки
                     if _print > 4:
+                        print('in move or first', moves, figure_rule['moves'][moves])
                         print('figure_rule[type] == fast', figure_rule['type'])
                     step_x = get_sign(move.x) * figure_rule['k']
                     step_y = get_sign(move.y) * figure_rule['k']
-                    steps = int(max(move.y, move.x) / figure_rule['k'])
+                    steps = int(unsign_max(move.y, move.x) / figure_rule['k'])
                     step = V(step_x, step_y)
-                    if _print > 6:
-                        print('steps, step, figure_rule[k]', steps, step, figure_rule['k'])
                 else:
-                    if _print > 6:
-                        print(figure_rule['type'])
-
                     steps = 1
                     step = move
                 if _print > 6:
-                    print('steps,step',steps,step)
+                    print(move)
+                    print('steps, step, figure_rule[k]', steps, step, figure_rule['k'])
+                    print(figure_rule['type'])
+
                 for i in range(1, steps+1):
                     move = step * i * figure_rule['k']
                     new_position = position+move
-                    if _print > 6:
-                        print('move',move)
-                        print(step, steps, 'steps')
                     if self.is_position_valid(new_position):
-                        if _print > 4:
-                            print(f'new_position move from {position.to_print()} to {new_position.to_print()}')
-                            print('position valid')
-                        if figure_rule['move&fight']:
+                        if moves == 'fight':
+                            res = self.if_can_beat(figure_id, new_position)
+                            if _print > 4:
+                                print('can beat', res)
+                        elif figure_rule['move&fight']:
                             res = self.if_can_move_or_beat(figure_id, new_position)
                             if _print > 4:
                                 print('move&fight', res)
@@ -475,12 +476,13 @@ class RuleSet:
                             res = self.if_can_move(new_position)
                             if _print > 4:
                                 print('can move', res)
+                        if _print > 4:
+                            print(position, new_position, 'new_position move')
+                            print('figure to move', self.get_id_by_pos(position), self.get_id_by_pos(new_position))
+                        
                         if res:
                             if _print > 1:
                                 self.move_figure(position, new_position)
-                            if _print > 4:
-                                print(position, new_position, 'new_position move')
-                                print('figure to move', self.get_id_by_pos(position), self.get_id_by_pos(new_position))
                             if _print > 6:
                                 pp.pprint(self.board)
                                 self.prettify(true_look=True)
@@ -488,53 +490,18 @@ class RuleSet:
                                 self.prettify()
                                 self.move_figure(new_position, position)
                             available_moves['to'].append(new_position)
-                            
-                    else:
-                        if _print > 6:
-                            print('position non valid')
-
-        if figure_rule['moves'].get('fight'):
-            for move in figure_rule['moves'][moves]:
-
-                if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
-                    step_x = get_sign(move.x) * figure_rule['k']
-                    step_y = get_sign(move.y) * figure_rule['k']
-                    steps = int(max(move.y, move.x) / figure_rule['k'])
-                    step = V(step_x, step_y)
-                else:
-                    steps = 1
-                    step = move
-
-                for i in range(1,steps+2):
-                    move = step * i
-                    new_position = position+move
-
-                    if self.is_position_valid(new_position):
-                        res = self.if_can_beat(figure_id, new_position)
-                        if _print > 4:
-                            print(f'new_position move from {position.to_print()} to {new_position.to_print()}')
-                            print('can beat', res)
-                        if res:
-                            if _print > 1:
-                                self.move_figure(position, new_position)
-                            if _print > 4:
-                                print(position, new_position, 'new_position move')
-                            if _print > 1:
-                                self.prettify()
-                                self.move_figure(new_position, position)
-                            available_moves['to'].append(new_position)
-
+                                
         return available_moves
 
+
+   
 ruleset = RuleSet()
-ruleset.get_available_step(2, ruleset.board, _print=5)
+ruleset.move_figure(V('c2'), V('c6') )
+ruleset.move_figure(11, 19)
+ruleset.prettify()
+ruleset.get_available_step(20, ruleset.board, _print=2)
 
-
-
-
-
-
-
+ruleset.board = ruleset.first_board
 
 
 
