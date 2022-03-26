@@ -1,6 +1,12 @@
 from collections import namedtuple
+from multiprocessing.connection import answer_challenge
 import pprint
+from re import S
 from turtle import position
+from uuid import uuid4
+
+from pyparsing import col 
+
 
 A_ORD = 97  #ord of 'a'
 pp = pprint.PrettyPrinter()
@@ -13,10 +19,6 @@ def get_sign(num):
     else:
         return 0
 
-def unsign_max(a,b):
-    m = abs(a)
-    n = abs(b)
-    return max(n,m)
 
 class V:
     x = 0
@@ -33,6 +35,12 @@ class V:
             self.y = y
     def __repr__(self) -> str:
         return f'V({self.x},{self.y})'
+    def __eq__(self, v):
+        if (isinstance(v, V) and 
+            self.x == v.x and self.y == v.y):
+            return True
+        else:
+            return False
     def __add__(self, v):
         if isinstance(v, V):
             return V(self.x + v.x, self.y + v.y)
@@ -85,6 +93,12 @@ def _not(value, *args):
     return True
 
 
+
+
+
+
+
+
 class RuleSet:
     def pawn_transform(self, figure_id, position):
         figure = self.figures[figure_id]
@@ -98,8 +112,10 @@ class RuleSet:
         else:
             return False
 
+
     def __init__(self):
         self.Figures = namedtuple('Figures' , 'type color')
+        self.Fig_State = namedtuple('Fig_State' , 'type color position')
         self.width = 8
         self.height = 8
         self.types = {
@@ -110,7 +126,7 @@ class RuleSet:
                 'queen': 5,
                 'king': 6,
                 }
-        self.figures = {
+        self.__figures = {
                     1:self.Figures('rook', 'white'),
                     2:self.Figures('knight', 'white'),
                     3:self.Figures('bishop', 'white'),
@@ -147,6 +163,7 @@ class RuleSet:
         
                     }
 
+     
         self.first_board = [
                     [25,26,27,28,29,30,31,32],
                     [17,18,19,20,21,22,23,24], 
@@ -158,7 +175,9 @@ class RuleSet:
                     [1, 2, 3, 4, 5, 6, 7, 8 ],
         ]
 
-        self.board = [row.copy() for row in self.first_board]
+        self._board = [row.copy() for row in self.first_board]
+
+
         self.board_color = [ #   where # is white and * is black
                     ['#','*','#','*','#','*','#','*'],
                     ['*','#','*','#','*','#','*','#'],
@@ -170,6 +189,19 @@ class RuleSet:
                     ['*','#','*','#','*','#','*','#'],
                 ]
     
+        self._figure_pos = {}
+        for i,row in enumerate(self.first_board):
+            for j,cell in enumerate(row):
+                if cell > 0:
+                    self._figure_pos[cell] = V(i,j)
+
+        self._fig_state = {}
+        for fig in self.__figures:
+            self._fig_state[fig] = self.Fig_State(type=self.__figures[fig].type, 
+                                                  color=self.__figures[fig].color, 
+                                                  position=self._figure_pos[fig])
+            
+
         self.rules = {'pawn' : {
                     'moves': {
                         'move' : [V(1,0)], 
@@ -248,11 +280,49 @@ class RuleSet:
                     }
                 }  
 
-    def prettify(self, _list=[], true_look=False, hyphens=27, indent=' '):
-        if _list == []:
-            _list = self.board
+
+    @property
+    def figure_pos(self):
+        figure_pos = {}
+        for i,row in enumerate(self.first_board):
+            for j,cell in enumerate(row):
+                if cell > 0:
+                    figure_pos[cell] = V(i,j)
+        return figure_pos
+
+    @property
+    def fig_state(self):
+        fig_state = {}
+        figure_pos = self.figure_pos
+        for fig in self.__figures:
+            fig_state[fig] = self.Fig_State(type=self.__figures[fig].type, 
+                                 color=self.__figures[fig].color, 
+                                 position=figure_pos[fig])
+        return fig_state
+
+    # def __fig_state(self):
+    #     fig_state = {}
+    #     figure_pos = self.figure_pos()
+    #     for fig in self.__figures:
+    #         fig_state[fig] = self.Fig_State(type=self.__figures[fig].type, 
+    #                              color=self.__figures[fig].color, 
+    #                              position=figure_pos[fig])
+    #     return fig_state
+
+
+    @property
+    def board(self):
+        return [row.copy() for row in self.first_board]
+
+    # def __board(self):
+        # return [row.copy() for row in self.first_board]
+
+
+    def prettify(self, _board=[], true_look=False, hyphens=27, indent=' '):
+        if _board == []:
+            _board = self.board
         print(' ', '-'*hyphens)
-        for count, row in enumerate(_list):
+        for count, row in enumerate(_board):
             if true_look:
                 print(f'{count} | ', end='')
             else:
@@ -274,19 +344,19 @@ class RuleSet:
         print(f'    {_str}')
 
     def if_can_beat(self, figure_id, position):
-        figure = self.figures[figure_id]
+        figure = self.__figures[figure_id]
         if (new_figure_id := self.board[position.x][position.y]) != 0:
-            new_figure = self.figures[new_figure_id]
+            new_figure = self.__figures[new_figure_id]
             if new_figure.color != figure.color:
                 return True
         return False
 
     def if_can_move_or_beat(self, figure_id, position):
-        figure = self.figures[figure_id]
+        figure = self.__figures[figure_id]
         if (new_figure_id := self.board[position.x][position.y]) == 0:
             return 'move'
         else:
-            new_figure = self.figures[new_figure_id]
+            new_figure = self.__figures[new_figure_id]
             if new_figure.color != figure.color:
                 return 'beat'
         return False
@@ -366,7 +436,7 @@ class RuleSet:
                 pass
 
 
-    def moves_product(self, figure, figure_id, figure_rule, _print, moves, available_moves):
+    def moves_product(self, figure, figure_id, figure_rule, _print, moves, available_moves, board=[]):
         if figure.color == 'white':
             move = move * -1
         if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
@@ -376,7 +446,7 @@ class RuleSet:
                 print('figure_rule[type] == fast', figure_rule['type'])
             step_x = get_sign(move.x) * figure_rule['k']
             step_y = get_sign(move.y) * figure_rule['k']
-            steps = int(unsign_max(move.y, move.x) / figure_rule['k'])
+            steps = int(max(move.y, move.x, key=abs) / figure_rule['k'])
             step = V(step_x, step_y)
         else:
             steps = 1
@@ -408,18 +478,18 @@ class RuleSet:
                     
                 if res:
                     if _print > 1:
-                        self.move_figure(position, new_position)
+                        self.move_figure(position, new_position, board=board)
                     if _print > 6:
                         pp.pprint(self.board)
                         self.prettify(true_look=True)
                     if _print > 1:
                         self.prettify()
-                        self.move_figure(new_position, position)
+                        self.move_figure(new_position, position, board=board)
                     available_moves['to'].append(new_position)
                     
 
     def get_available_step(self, figure_id, board, _print=0):
-        figure = self.figures[figure_id]
+        figure = self.__figures[figure_id]
         position = self.get_position_by_id(figure_id)
         available_moves = {}
         available_moves['to'] = []
@@ -434,10 +504,6 @@ class RuleSet:
         if _print > 2:
             self.prettify(true_look=True)
             self.prettify()
-            if _print > 4:
-                print(figure_id, figure.type, figure.color)
-                print(figure_rule)
-                print('first move')
         if figure_rule['moves'].get('fight'):
             moves_list.append('fight')
         for moves in moves_list:
@@ -447,20 +513,13 @@ class RuleSet:
                 if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
                         # если фигура быстрая (типа туры и офицера)
                         # или быстрая во время первого хода, типа пешки
-                    if _print > 4:
-                        print('in move or first', moves, figure_rule['moves'][moves])
-                        print('figure_rule[type] == fast', figure_rule['type'])
                     step_x = get_sign(move.x) * figure_rule['k']
                     step_y = get_sign(move.y) * figure_rule['k']
-                    steps = int(unsign_max(move.y, move.x) / figure_rule['k'])
+                    steps = int(max(move.y, move.x, key=abs) / figure_rule['k'])
                     step = V(step_x, step_y)
                 else:
                     steps = 1
                     step = move
-                if _print > 6:
-                    print(move)
-                    print('steps, step, figure_rule[k]', steps, step, figure_rule['k'])
-                    print(figure_rule['type'])
 
                 for i in range(1, steps+1):
                     move = step * i * figure_rule['k']
@@ -468,49 +527,171 @@ class RuleSet:
                     if self.is_position_valid(new_position):
                         if moves == 'fight':
                             res = self.if_can_beat(figure_id, new_position)
-                            if _print > 4:
-                                print('can beat', res)
                         elif figure_rule['move&fight']:
                             res = self.if_can_move_or_beat(figure_id, new_position)
-                            if _print > 4:
-                                print('move&fight', res)
                         else:
                             res = self.if_can_move(new_position)
-                            if _print > 4:
-                                print('can move', res)
-                        if _print > 4:
-                            print(position, new_position, 'new_position move')
-                            print('figure to move', self.get_id_by_pos(position), self.get_id_by_pos(new_position))
                         
                         if res:
                             if _print > 1:
-                                self.move_figure(position, new_position)
+                                self.move_figure(position, new_position, board=board)
                             if _print > 6:
-                                pp.pprint(self.board)
+                                pp.pprint(board)
                                 self.prettify(true_look=True)
                             if _print > 1:
                                 self.prettify()
-                                self.move_figure(new_position, position)
+                                self.move_figure(new_position, position, board=board)
                             available_moves['to'].append(new_position)
                                 
         return available_moves
 
 
-   
+
+class Tree():
+    _nodes = set()
+    def __init__(self, ancestor=None):
+        # print(f'ancestor is {ancestor}')
+        if ancestor is None:
+            ancestor = Tree(0)
+            self.ancestor = ancestor
+            Tree.root = self
+        elif ancestor != 0:
+            self.ancestor = ancestor
+            ancestor.childs.append(self)
+        
+        if ancestor == 0:
+            self.id = 0
+        else:
+            self.id = uuid4().hex
+        if self.id:
+            Tree._nodes.add(self.id)
+        self.childs = []
+
+    def reinit():
+        _nodes = set()
+
+    def nodes(*args, **kwargs):
+        l = list(Tree._nodes)
+        # l.sort()
+        return l
+
+    def all_childs(self):
+        try:
+            childs = []
+            childs.append(self)
+            # print(self)
+            for child in self.childs:
+                # print(child)
+                childs.append(child.all_childs() )
+        except Exception:
+            childs = self
+        return childs
+        
+    def __str__(self):
+        _str = ''
+        if self.ancestor.id == 0:
+            _str += f'root, '
+        else:
+            _str += f'ancestor {self.ancestor.id[:10]}, '
+        
+        _str += f'id is {self.id[:10]}, '
+        
+        if len(self.childs) == 0:
+            _str += f'no childs'
+        else:
+            _str += f'childs {len(self.childs)}'
+        return _str 
+    
+    def __repr__(self):
+        return self.__str__()
+    
+        
+    def add_child(self):
+        tree = Tree(self)
+        self.childs.append(tree)
+        return tree
+    
+    def search(self, id):
+        res = 0
+        # print(self)
+        try:
+            if self.id == id:
+                return self
+            for child in self.childs:
+                # print(child)
+                if child.id == id:
+                    return child
+                try:
+                    res = child.search(id)
+                    if res:
+                        return res
+                except Exception as e:
+                    print(e)
+                    
+        except Exception as e:
+            print(e)
+        return res
+
+    def get_node_path(self, id):
+        res = []
+        # print(self)
+        node = self.search(id)
+        while True:
+            try:   
+                print(node)
+                res.append(node)
+                if node.ancestor == 0:
+                    break
+                ancestor = node.ancestor
+                # print(ancestor) 
+                node = ancestor 
+            except Exception as e:
+                print(e)
+                break
+        return res
+           
+t = Tree()
+
 ruleset = RuleSet()
 ruleset.move_figure(V('c2'), V('c6') )
+# ruleset.move_figure(21, 13 )
 # ruleset.move_figure(11, 19)
 ruleset.prettify()
-ruleset.get_available_step(20, ruleset.board, _print=2)
+
+ruleset.get_available_step(12, ruleset.board, _print=2)
+ruleset.move_figure(V('c7'), V('c3') )
 
 pp.pprint(ruleset.board)
 pp.pprint(ruleset.first_board)
 
-ruleset.board = ruleset.first_board 
 
-ruleset.board
+current_color = 'white'
 
-# car = namedtuple('car', 'color type')
-# ca = car('blue', 'cabrio')
-# ca.color = 'white'
-# const = ('q', 'b')
+
+class Game():
+    current_color = ''
+    def __init__(self, color):
+        self.current_color = color
+        self.board = RuleSet().board
+        self.figures = RuleSet().fig_state
+    
+    def prettify(self):
+        return RuleSet().prettify(_board=self.board)
+
+    def get_all_figures(self, color=''):
+        if color == '':
+            color = self.current_color
+    
+        for fig in self.figures:
+            if self.figures[fig].color == color:
+                print(self.figures[fig], fig)
+
+game = Game('white')
+game.get_all_figures('black')
+game.prettify()
+
+
+
+
+# ruleset = RuleSet()
+# RuleSet().fig_state()
