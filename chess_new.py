@@ -627,6 +627,8 @@ class RuleSet:
                                 self.prettify(board)
                                 self.move_figure(new_position, position, board=board)
                             available_moves['to'].append(new_position)
+                        else:
+                            break
                                 
         return available_moves
 
@@ -779,7 +781,7 @@ game.prettify()
 
 
 current_color = 'white'
-# current_color = 'black'
+current_color = 'black'
 figures = game.get_all_figures(current_color)
 
 for fig in figures:
@@ -788,8 +790,10 @@ for fig in figures:
 
 game.get_all_figures(current_color)[1]
 
-figure = 1
+figure = 2
+figure = 25
 ruleset.get_available_step(figure, figures[figure], game.board, figure)
 
 
 
+ruleset.fig_state
