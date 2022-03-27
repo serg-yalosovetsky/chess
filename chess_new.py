@@ -509,58 +509,6 @@ class RuleSet:
                 pass
 
 
-    def moves_product(self, figure, figure_id, figure_rule, _print, moves, available_moves, board=[]):
-        if figure.color == 'white':
-            move = move * -1
-        if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
-                # если фигура быстрая (типа туры и офицера)
-                # или быстрая во время первого хода, типа пешки
-            if _print > 4:
-                print('figure_rule[type] == fast', figure_rule['type'])
-            step_x = get_sign_zero(move.x) * figure_rule['k']
-            step_y = get_sign_zero(move.y) * figure_rule['k']
-            steps = int(max(move.y, move.x, key=abs) / figure_rule['k'])
-            step = V(step_x, step_y)
-        else:
-            steps = 1
-            step = move
-        if _print > 6:
-            print(move)
-            print('steps, step, figure_rule[k]', steps, step, figure_rule['k'])
-            print(figure_rule['type'])
-
-        for i in range(1, steps+1):
-            move = step * i * figure_rule['k']
-            new_position = position+move
-            if self.is_position_valid(new_position):
-                if figure_rule['moves'].get('fight'):
-                    res = self.if_can_beat(figure_id, new_position)
-                    if _print > 4:
-                        print('can beat', res)
-                if figure_rule['move&fight']:
-                    res = self.if_can_move_or_beat(figure_id, new_position)
-                    if _print > 4:
-                        print('move&fight', res)
-                else:
-                    res = self.if_can_move(new_position)
-                    if _print > 4:
-                        print('can move', res)
-                if _print > 4:
-                    print(position, new_position, 'new_position move')
-                    print('figure to move', self.get_id_by_pos(position), self.get_id_by_pos(new_position))
-                    
-                if res:
-                    if _print > 1:
-                        self.move_figure(position, new_position, board=board)
-                    if _print > 6:
-                        pp.pprint(self.board)
-                        self.prettify(true_look=True)
-                    if _print > 1:
-                        self.prettify()
-                        self.move_figure(new_position, position, board=board)
-                    available_moves['to'].append(new_position)
-                    
-
     def get_available_step(self, figure_id, figures, board, _print=0):
         figure = figures[figure_id]
         position = self.get_position_by_id(figure_id, board=board)

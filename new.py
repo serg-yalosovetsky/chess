@@ -1,1 +1,0 @@
-from chess_old2 import Board
