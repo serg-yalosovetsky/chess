@@ -143,7 +143,7 @@ class RuleSet:
         board = params['board']
         figures = params['figures']
         figure = figures[figure_id]
-        if not ruleset.is_first_move(figure.position, board):
+        if not self.is_first_move(figure.position, board):
             return False
         
         king_id = None
@@ -152,7 +152,7 @@ class RuleSet:
                 king_id = fig
 
         if king_id:
-            if not ruleset.is_first_move(figures[king_id].position, board):
+            if not self.is_first_move(figures[king_id].position, board):
                 return False
             vector = get_cells_between(figure.position, figures[king_id].position)
             void_line = (board[cell.x][cell.y] != 0 for cell in vector)
@@ -165,17 +165,17 @@ class RuleSet:
         board = params['board']
         figures = params['figures']
         figure = figures[figure_id]
-        if not ruleset.is_first_move(figure.position, board):
+        if not self.is_first_move(figure.position, board):
             return False
         
         rook_ids = []
         for fig in figures:
             if figures[fig].type == 'rook':
-                rook_ids.append[fig]
+                rook_ids.append(fig)
 
         if rook_ids:
             for rook_id in rook_ids:
-                if not ruleset.is_first_move(figures[rook_id].position, board):
+                if not self.is_first_move(figures[rook_id].position, board):
                     return False
                 vector = get_cells_between(figure.position, figures[rook_id].position)
                 void_line = (board[cell.x][cell.y] != 0 for cell in vector)
@@ -498,8 +498,7 @@ class RuleSet:
 
         except Exception:
             return False
-        return True
-
+        return board
 
     def step_move(position=V(1,1), board=[], moves=[]):
         for move in moves:
@@ -566,8 +565,8 @@ class RuleSet:
                     available_moves['to'].append(new_position)
                     
 
-    def get_available_step(self, figure_id, figure, board, _print=0):
-        # figure = self.__figures[figure_id]
+    def get_available_step(self, figure_id, figures, board, _print=0):
+        figure = figures[figure_id]
         position = self.get_position_by_id(figure_id, board=board)
         available_moves = {}
         available_moves['to'] = []
@@ -575,6 +574,7 @@ class RuleSet:
         figure_rule = self.rules[figure.type]
         print(figure_rule)
         moves_list = []
+
         params = {'figure_id': figure_id, 'board': board, 'figures': figures}
         if figure_rule['first_move'] and figure_rule['first_move'](params) and self.is_first_move(position):
             moves_list.append('first') 
@@ -608,13 +608,13 @@ class RuleSet:
                     new_position = position+move
                     if self.is_position_valid(new_position):
                         if moves == 'fight':
-                            res = self.if_can_beat(figure_id, new_position)
+                            res = self.if_can_beat(figure_id, new_position, board)
                             print('can beat')
                         elif figure_rule['move&fight']:
-                            res = self.if_can_move_or_beat(figure_id, new_position)
+                            res = self.if_can_move_or_beat(figure_id, new_position, board)
                             print('can move or beat', res)
                         else:
-                            res = self.if_can_move(new_position)
+                            res = self.if_can_move(new_position, board)
                             print('can move')
                         if res:
                             if _print > 1:
@@ -737,22 +737,6 @@ class Tree():
                 break
         return res
            
-t = Tree()
-
-ruleset = RuleSet()
-ruleset.move_figure(V('c2'), V('c6') )
-# ruleset.move_figure(21, 13 )
-# ruleset.move_figure(11, 19)
-ruleset.prettify()
-
-ruleset.get_available_step(12, ruleset.board, _print=2)
-ruleset.move_figure(V('c7'), V('c3') )
-
-pp.pprint(ruleset.board)
-pp.pprint(ruleset.first_board)
-
-
-current_color = 'white'
 
 
 class Game():
@@ -775,25 +759,51 @@ class Game():
                 figures[fig] = self.figures[fig]  
         return figures
 
-game = Game('white')
-game.get_all_figures('black')
-game.prettify()
+
+# t = Tree()
+
+# ruleset = RuleSet()
+# ruleset.move_figure(V('c2'), V('c6') )
+# # ruleset.move_figure(21, 13 )
+# # ruleset.move_figure(11, 19)
+# ruleset.prettify()
+
+# ruleset.get_available_step(12, ruleset.fig_state, ruleset.board, _print=2)
+# ruleset.move_figure(V('c7'), V('c3') )
+
+# pp.pprint(ruleset.board)
+# pp.pprint(ruleset.first_board)
 
 
-current_color = 'white'
-current_color = 'black'
-figures = game.get_all_figures(current_color)
-
-for fig in figures:
-    ruleset.get_available_step(fig, figures[fig], game.board)
+# current_color = 'white'
 
 
-game.get_all_figures(current_color)[1]
-
-figure = 2
-figure = 25
-ruleset.get_available_step(figure, figures[figure], game.board, figure)
+# game = Game('white')
+# game.get_all_figures('black')
+# game.prettify()
 
 
+# current_color = 'white'
+# current_color = 'black'
+# figures = game.get_all_figures(current_color)
 
-ruleset.fig_state
+# for fig in figures:
+#     ruleset.get_available_step(fig, figures, game.board)
+
+
+# game.get_all_figures(current_color)[1]
+
+# figure = 2
+# figure = 25
+# ruleset.get_available_step(figure, figures, game.board, figure)
+
+
+
+# colors = ['white', 'black']
+# moves = {}
+# for color in colors:
+#     figures = game.get_all_figures(color)
+#     for figure_id, figure  in figures.items():
+#         print(figure_id, figure)
+#         moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+# pp.pprint(moves)
