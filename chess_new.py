@@ -2,6 +2,8 @@ from collections import namedtuple
 import pprint
 from uuid import uuid4
 
+from pyparsing import col
+
 
 
 A_ORD = 97  #ord of 'a'
@@ -119,6 +121,9 @@ def _not(value, *args):
 
 
 
+Figures = namedtuple('Figures' , 'type color')
+Fig_State = namedtuple('Fig_State' , 'type color position')
+Fig_Rules = namedtuple('Fig_Rules' , 'moves ghost first_move move_fight step score type transform k')
 
 
 class RuleSet:
@@ -129,7 +134,7 @@ class RuleSet:
         if can_transform:
             print('you can (not) choose figure to transform')
             new_figure_type = 'queen'
-            self.figures[figure_id] = self.Figures(new_figure_type, figure.color)
+            self.figures[figure_id] = Figures(new_figure_type, figure.color)
             return new_figure_type
         else:
             return False
@@ -181,8 +186,7 @@ class RuleSet:
 
 
     def __init__(self):
-        self.Figures = namedtuple('Figures' , 'type color')
-        self.Fig_State = namedtuple('Fig_State' , 'type color position')
+
         self.width = 8
         self.height = 8
         self.types = {
@@ -194,39 +198,39 @@ class RuleSet:
                 'king': 6,
                 }
         self.__figures = {
-                    1:self.Figures('rook', 'white'),
-                    2:self.Figures('knight', 'white'),
-                    3:self.Figures('bishop', 'white'),
-                    4:self.Figures('queen', 'white'),
-                    5:self.Figures('king', 'white'),
-                    6:self.Figures('bishop', 'white'),
-                    7:self.Figures('knight', 'white'),
-                    8:self.Figures('rook', 'white'),
-                    9:self.Figures('pawn', 'white'),
-                    10:self.Figures('pawn', 'white'),
-                    11:self.Figures('pawn', 'white'),
-                    12:self.Figures('pawn', 'white'),
-                    13:self.Figures('pawn', 'white'),
-                    14:self.Figures('pawn', 'white'),
-                    15:self.Figures('pawn', 'white'),
-                    16:self.Figures('pawn', 'white'),
+                    1:Figures('rook', 'white'),
+                    2:Figures('knight', 'white'),
+                    3:Figures('bishop', 'white'),
+                    4:Figures('queen', 'white'),
+                    5:Figures('king', 'white'),
+                    6:Figures('bishop', 'white'),
+                    7:Figures('knight', 'white'),
+                    8:Figures('rook', 'white'),
+                    9:Figures('pawn', 'white'),
+                    10:Figures('pawn', 'white'),
+                    11:Figures('pawn', 'white'),
+                    12:Figures('pawn', 'white'),
+                    13:Figures('pawn', 'white'),
+                    14:Figures('pawn', 'white'),
+                    15:Figures('pawn', 'white'),
+                    16:Figures('pawn', 'white'),
 
-                    17:self.Figures('pawn', 'black'),
-                    18:self.Figures('pawn', 'black'),
-                    19:self.Figures('pawn', 'black'),
-                    20:self.Figures('pawn', 'black'),
-                    21:self.Figures('pawn', 'black'),
-                    22:self.Figures('pawn', 'black'),
-                    23:self.Figures('pawn', 'black'),
-                    24:self.Figures('pawn', 'black'),
-                    25:self.Figures('rook', 'black'),
-                    26:self.Figures('knight', 'black'),
-                    27:self.Figures('bishop', 'black'),
-                    28:self.Figures('queen', 'black'),
-                    29:self.Figures('king', 'black'),
-                    30:self.Figures('bishop', 'black'),
-                    31:self.Figures('knight', 'black'),
-                    32:self.Figures('rook', 'black'),
+                    17:Figures('pawn', 'black'),
+                    18:Figures('pawn', 'black'),
+                    19:Figures('pawn', 'black'),
+                    20:Figures('pawn', 'black'),
+                    21:Figures('pawn', 'black'),
+                    22:Figures('pawn', 'black'),
+                    23:Figures('pawn', 'black'),
+                    24:Figures('pawn', 'black'),
+                    25:Figures('rook', 'black'),
+                    26:Figures('knight', 'black'),
+                    27:Figures('bishop', 'black'),
+                    28:Figures('queen', 'black'),
+                    29:Figures('king', 'black'),
+                    30:Figures('bishop', 'black'),
+                    31:Figures('knight', 'black'),
+                    32:Figures('rook', 'black'),
         
                     }
 
@@ -264,89 +268,90 @@ class RuleSet:
 
         self._fig_state = {}
         for fig in self.__figures:
-            self._fig_state[fig] = self.Fig_State(type=self.__figures[fig].type, 
+            self._fig_state[fig] = Fig_State(_type=self.__figures[fig].type, 
                                                   color=self.__figures[fig].color, 
                                                   position=self._figure_pos[fig])
             
-
-        self.rules = {'pawn' : {
-                    'moves': {
-                        'move' : [V(1,0)], 
-                        'fight': [V(1,-1),V(1,1)], 
-                        'first': [V(2,0)], 
-                        }, 
-                    'ghost':False, 
-                    'first_move': lambda *x: True,
-                    'move&fight': False,
-                    'score':10, 
-                    'type': 'first', 
-                    'transform': self.pawn_transform, 
-                    'k':1,
-                    },
-                'rook' : {
-                    'moves': {
-                        'move' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
-                        'first' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
-                        },
-                    'ghost':False, 
-                    'first_move': self.if_rook_first_move,
-                    'move&fight': True,
-                    'score':30,
-                    'type': 'fast', 
-                    'transform': False, 
-                    'k':1
-                    },                   
-                'knight' : {
-                    'moves': {
-                        'move' : [V(2,1),V(2,-1), V(-2,1),V(-2,-1), 
-                                    V(1,2),V(1,-2), V(-1,2),V(-1,-2)], 
-                        },
-                    'ghost':True, 
-                    'first_move': False,
-                    'move&fight': True,
-                    'step': 'move', 
-                    'score':25,
-                    'type': 'knight',
-                    'transform': False,  
-                    'k':1
-                    },                  
-                'bishop' : {
-                    'moves': {
-                        'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100)], 
-                        },
-                    'ghost':False, 
-                    'first_move': False,
-                    'move&fight': True,
-                    'score':25,
-                    'type': 'fast', 
-                    'transform': False,  
-                    'k':1
-                    },                  
-                'queen' : {
-                    'moves': {
-                        'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100),
-                                    V(-100,0), V(100,0),V(0,-100),V(0,100)], 
-                                    },
-                    'ghost':False, 
-                    'first_move': False,
-                    'move&fight': True,
-                    'score':100,
-                    'type': 'fast', 
-                    'transform': False, 
-                    'k':1},                  
-                'king' : {
-                    'moves': {
-                        'move' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
-                        'first' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
-                        },
-                    'ghost':False, 
-                    'first_move': self.if_king_first_move,
-                    'move&fight': True,
-                    'score':10000, 
-                    'type': 'slow', 
-                    'transform': False, 
-                    'k':1,
-                    }
+# 'moves ghost first_move move_fight score type transform k
+        self.rules = {'pawn' : Fig_Rules(
+                                        moves={
+                                            'move' : [V(1,0)], 
+                                            'fight': [V(1,-1),V(1,1)], 
+                                            'first': [V(2,0)], 
+                                        }, 
+                                        ghost=False, 
+                                        first_move=lambda *x: True,
+                                        move_fight=False,
+                                        score=10, 
+                                        _type='first', 
+                                        transform=self.pawn_transform, 
+                                        k=1,
+                                ),
+                    'rook' : Fig_Rules(
+                                        moves= {
+                                            'move' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
+                                            'first' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
+                                            },
+                                        ghost=False, 
+                                        first_move= self.if_rook_first_move,
+                                        move_fight= True,
+                                        score=30,
+                                        _type='fast', 
+                                        transform= False, 
+                                        k=1
+                                ),                   
+                    'knight' : Fig_Rules(
+                                        moves= {
+                                            'move' : [V(2,1),V(2,-1), V(-2,1),V(-2,-1), 
+                                                        V(1,2),V(1,-2), V(-1,2),V(-1,-2)], 
+                                            },
+                                        ghost=True, 
+                                        first_move= False,
+                                        move_fight= True,
+                                        step='move', 
+                                        score=25,
+                                        _type= 'knight',
+                                        transform= False,  
+                                        k=1
+                                ),                  
+                    'bishop' : Fig_Rules(
+                                        moves= {
+                                            'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100)], 
+                                            },
+                                        ghost=False, 
+                                        first_move= False,
+                                        move_fight= True,
+                                        score=25,
+                                        _type= 'fast', 
+                                        transform= False,  
+                                        k=1
+                                ),                  
+                    'queen' : Fig_Rules(
+                                        moves= {
+                                            'move' : [V(-100,-100),V(100,100),V(100,-100),V(-100,100),
+                                                        V(-100,0), V(100,0),V(0,-100),V(0,100)], 
+                                                        },
+                                        ghost=False, 
+                                        first_move= False,
+                                        move_fight= True,
+                                        score=100,
+                                        _type= 'fast', 
+                                        transform= False, 
+                                       k=1
+                                ),                  
+                    'king' : Fig_Rules(
+                                        moves= {
+                                            'move' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
+                                            'first' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
+                                            },
+                                        ghost=False, 
+                                        first_move= self.if_king_first_move,
+                                        move_fight= True,
+                                        score=10000, 
+                                        _type= 'slow', 
+                                        transform= False, 
+                                        k=1,
+                            )
                 }  
 
 
@@ -364,7 +369,7 @@ class RuleSet:
         fig_state = {}
         figure_pos = self.figure_pos
         for fig in self.__figures:
-            fig_state[fig] = self.Fig_State(type=self.__figures[fig].type, 
+            fig_state[fig] = Fig_State(_type=self.__figures[fig].type, 
                                  color=self.__figures[fig].color, 
                                  position=figure_pos[fig])
         return fig_state
@@ -509,12 +514,14 @@ class RuleSet:
                 pass
 
 
-    def get_available_step(self, figure_id, figures, board, _print=0):
+    def get_available_step(self, figure_id:int, figures:list[Fig_State], board, _print=0):
         figure = figures[figure_id]
         position = self.get_position_by_id(figure_id, board=board)
         available_moves = {}
         available_moves['to'] = []
         available_moves['from'] = position
+        available_moves['score'] = {}
+
         figure_rule = self.rules[figure.type]
         print(figure_rule)
         moves_list = []
@@ -549,12 +556,14 @@ class RuleSet:
 
                 for i in range(1, steps+1):
                     move = step * i * figure_rule['k']
-                    new_position = position+move
+                    new_position:V = position+move
                     if self.is_position_valid(new_position):
                         if moves == 'fight':
                             res = self.if_can_beat(figure_id, new_position, board)
                             print('can beat')
-                        elif figure_rule['move&fight']:
+                            
+
+                        elif figure_rule['move_fight']:
                             res = self.if_can_move_or_beat(figure_id, new_position, board)
                             print('can move or beat', res)
                         else:
@@ -571,6 +580,11 @@ class RuleSet:
                                 self.prettify(board)
                                 self.move_figure(new_position, position, board=board)
                             available_moves['to'].append(new_position)
+                            if res == 'beat':
+                                
+                                enemy_id = self.get_id_by_pos(new_position, board)
+                                score = self.rules[figures[enemy_id].type].score
+                                available_moves['score'][new_position.to_print()] = score
                         else:
                             break
                                 
@@ -598,7 +612,7 @@ class Tree():
             Tree._nodes.add(self.id)
         self.childs = []
 
-    def reinit():
+    def reinit(self):
         _nodes = set()
 
     def nodes(*args, **kwargs):
@@ -697,14 +711,12 @@ class Game():
         figures = {}
         if color == '':
             color = self.current_color
-
         for fig in self.figures:
-            if self.figures[fig].color == color:
+            if self.figures[fig].color == color or color == 'all':
                 figures[fig] = self.figures[fig]  
         return figures
 
 
-# t = Tree()
 
 # ruleset = RuleSet()
 # ruleset.move_figure(V('c2'), V('c6') )
@@ -743,11 +755,32 @@ class Game():
 
 
 
-# colors = ['white', 'black']
+# # colors = ['white', 'black']
 # moves = {}
-# for color in colors:
-#     figures = game.get_all_figures(color)
-#     for figure_id, figure  in figures.items():
-#         print(figure_id, figure)
-#         moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+# # for color in colors:
+# color = current_color
+# figures = game.get_all_figures(color)
+# for figure_id, figure  in figures.items():
+#     print(figure_id, figure)
+#     moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
 # pp.pprint(moves)
+
+# for fig_id, move in moves.items():
+#     if move['to']:
+#         print(fig_id, move)
+
+# Tree().reinit()
+
+# t = Tree()
+# trees = {}
+# for fig_id, move in moves.items():
+#     if move['to']:
+#         trees[Tree(t).id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
+#         print(fig_id, move)
+
+# pprint.pprint(t.childs)
+# pprint.pprint(trees)
+
+# t.id
+# t.search('d1cf5a5301c74f51936aea8deb14a0dc')
+# t.get_node_path('d1cf5a5301c74f51936aea8deb14a0dc')
