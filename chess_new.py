@@ -11,7 +11,7 @@ from pyparsing import col
 A_ORD = 97  #ord of 'a'
 pp = pprint.PrettyPrinter()
 
-def get_sign(num):
+def get_sign_zero(num):
     if num >= 1:
         return 1
     elif num <= -1:
@@ -19,6 +19,12 @@ def get_sign(num):
     else:
         return 0
 
+
+def get_sign(x,y):
+    if x <= y:
+        return 1
+    else:
+        return -1
 
 class V:
     x = 0
@@ -67,6 +73,26 @@ class V:
         print(self.to_print())
 
 
+
+def get_cells_between(p1:V, p2:V):
+    if p1.x == p2.x:
+        cells = [V(p1.x, i) for i in range(min(p1.y, p2.y)+1, max(p1.y, p2.y))]
+    if p1.y == p2.y:
+        cells = [V(j, p1.y) for j in range(min(p1.x, p2.x)+1, max(p1.x, p2.x))]
+    if abs(p1.x - p2.x) == abs(p1.y - p2.y):
+        sign_x = get_sign(p1.x, p2.x)
+        sign_y = get_sign(p1.y, p2.y)
+        cells = [V(p1.x + i*sign_x, p1.y + i*sign_y) for i in range(1, abs(p1.x - p2.x))]
+    return cells
+
+
+
+
+
+
+
+
+
 def safe_divide(a,b):
     if b == 0:
         return 0
@@ -111,6 +137,51 @@ class RuleSet:
             return new_figure_type
         else:
             return False
+
+    def if_rook_first_move(self, params, *args, **kwargs):
+        figure_id = params['figure_id']
+        board = params['board']
+        figures = params['figures']
+        figure = figures[figure_id]
+        if not ruleset.is_first_move(figure.position, board):
+            return False
+        
+        king_id = None
+        for fig in figures:
+            if figures[fig].type == 'king':
+                king_id = fig
+
+        if king_id:
+            if not ruleset.is_first_move(figures[king_id].position, board):
+                return False
+            vector = get_cells_between(figure.position, figures[king_id].position)
+            void_line = (board[cell.x][cell.y] != 0 for cell in vector)
+            if all(void_line):
+                return True
+        return False
+    
+    def if_king_first_move(self, params, *args, **kwargs):
+        figure_id = params['figure_id']
+        board = params['board']
+        figures = params['figures']
+        figure = figures[figure_id]
+        if not ruleset.is_first_move(figure.position, board):
+            return False
+        
+        rook_ids = []
+        for fig in figures:
+            if figures[fig].type == 'rook':
+                rook_ids.append[fig]
+
+        if rook_ids:
+            for rook_id in rook_ids:
+                if not ruleset.is_first_move(figures[rook_id].position, board):
+                    return False
+                vector = get_cells_between(figure.position, figures[rook_id].position)
+                void_line = (board[cell.x][cell.y] != 0 for cell in vector)
+                if all(void_line):
+                    return True
+        return False
 
 
     def __init__(self):
@@ -209,7 +280,7 @@ class RuleSet:
                         'first': [V(2,0)], 
                         }, 
                     'ghost':False, 
-                    'first_move': True,
+                    'first_move': lambda *x: True,
                     'move&fight': False,
                     'score':10, 
                     'type': 'first', 
@@ -219,9 +290,10 @@ class RuleSet:
                 'rook' : {
                     'moves': {
                         'move' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
+                        'first' : [V(-100,0), V(100,0), V(0,-100), V(0,100)], 
                         },
                     'ghost':False, 
-                    'first_move': True,
+                    'first_move': self.if_rook_first_move,
                     'move&fight': True,
                     'score':30,
                     'type': 'fast', 
@@ -269,9 +341,10 @@ class RuleSet:
                 'king' : {
                     'moves': {
                         'move' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
+                        'first' : [V(-1,0),V(1,0),V(0,-1),V(0,1)], 
                         },
                     'ghost':False, 
-                    'first_move': True,
+                    'first_move': self.if_king_first_move,
                     'move&fight': True,
                     'score':10000, 
                     'type': 'slow', 
@@ -300,22 +373,10 @@ class RuleSet:
                                  position=figure_pos[fig])
         return fig_state
 
-    # def __fig_state(self):
-    #     fig_state = {}
-    #     figure_pos = self.figure_pos()
-    #     for fig in self.__figures:
-    #         fig_state[fig] = self.Fig_State(type=self.__figures[fig].type, 
-    #                              color=self.__figures[fig].color, 
-    #                              position=figure_pos[fig])
-    #     return fig_state
-
 
     @property
     def board(self):
         return [row.copy() for row in self.first_board]
-
-    # def __board(self):
-        # return [row.copy() for row in self.first_board]
 
 
     def prettify(self, _board=[], true_look=False, hyphens=27, indent=' '):
@@ -343,21 +404,33 @@ class RuleSet:
 
         print(f'    {_str}')
 
-    def if_can_beat(self, figure_id, position):
-        figure = self.__figures[figure_id]
-        if (new_figure_id := self.board[position.x][position.y]) != 0:
-            new_figure = self.__figures[new_figure_id]
+    def if_can_beat(self, figure_id, position, board=[], figures={}):
+        if not figures:
+            figures = self.__figures
+        if board == []:
+            board = self.board
+        figure = figures[figure_id]
+        if (new_figure_id := board[position.x][position.y]) != 0:
+            new_figure = figures[new_figure_id]
             if new_figure.color != figure.color:
                 return True
         return False
 
-    def if_can_move_or_beat(self, figure_id, position):
-        figure = self.__figures[figure_id]
-        if (new_figure_id := self.board[position.x][position.y]) == 0:
+    def if_can_move_or_beat(self, figure_id, position, board=[], figures={}):
+        if not figures:
+            figures = self.__figures
+        if board == []:
+            board = self.board
+        figure = figures[figure_id]
+        if (new_figure_id := board[position.x][position.y]) == 0:
+            print(figure_id, figure, new_figure_id, position)
+
             return 'move'
         else:
-            new_figure = self.__figures[new_figure_id]
+            new_figure = figures[new_figure_id]
             if new_figure.color != figure.color:
+                print(new_figure.color, new_figure.type, new_figure_id, position)
+                print(figure.color, figure.type, figure_id)
                 return 'beat'
         return False
 
@@ -379,8 +452,11 @@ class RuleSet:
         except Exception:
             return -1
 
-    def if_can_move(self, position):
-        if self.board[position.x][position.y] == 0:
+    def if_can_move(self, position, board=[]):
+        if board == []:
+            board = self.board
+        
+        if board[position.x][position.y] == 0:
             return True
         else:
             return False    
@@ -392,8 +468,10 @@ class RuleSet:
         else:
             return False 
 
-    def is_first_move(self, position):
-        if self.board[position.x][position.y] == self.first_board[position.x][position.y]:
+    def is_first_move(self, position, board=[]):
+        if not board:
+            board = self.board
+        if board[position.x][position.y] == self.first_board[position.x][position.y]:
             return True
         else:
             return False
@@ -444,8 +522,8 @@ class RuleSet:
                 # или быстрая во время первого хода, типа пешки
             if _print > 4:
                 print('figure_rule[type] == fast', figure_rule['type'])
-            step_x = get_sign(move.x) * figure_rule['k']
-            step_y = get_sign(move.y) * figure_rule['k']
+            step_x = get_sign_zero(move.x) * figure_rule['k']
+            step_y = get_sign_zero(move.y) * figure_rule['k']
             steps = int(max(move.y, move.x, key=abs) / figure_rule['k'])
             step = V(step_x, step_y)
         else:
@@ -488,34 +566,38 @@ class RuleSet:
                     available_moves['to'].append(new_position)
                     
 
-    def get_available_step(self, figure_id, board, _print=0):
-        figure = self.__figures[figure_id]
-        position = self.get_position_by_id(figure_id)
+    def get_available_step(self, figure_id, figure, board, _print=0):
+        # figure = self.__figures[figure_id]
+        position = self.get_position_by_id(figure_id, board=board)
         available_moves = {}
         available_moves['to'] = []
         available_moves['from'] = position
         figure_rule = self.rules[figure.type]
+        print(figure_rule)
         moves_list = []
-        if figure_rule['first_move'] and self.is_first_move(position):
+        params = {'figure_id': figure_id, 'board': board, 'figures': figures}
+        if figure_rule['first_move'] and figure_rule['first_move'](params) and self.is_first_move(position):
             moves_list.append('first') 
             # режим действия, если на первом ходу фигуры действуют особые условия
         else:
             moves_list.append('move') 
         if _print > 2:
-            self.prettify(true_look=True)
-            self.prettify()
+            self.prettify(board, true_look=True)
+            self.prettify(board)
         if figure_rule['moves'].get('fight'):
             moves_list.append('fight')
         for moves in moves_list:
+            print(moves)
             for move in figure_rule['moves'][moves]:
+                print(moves, move)
                 if figure.color == 'white':
                     move = move * -1
                 if figure_rule['type'] == 'fast' or figure_rule['type'] == moves:
                         # если фигура быстрая (типа туры и офицера)
                         # или быстрая во время первого хода, типа пешки
-                    step_x = get_sign(move.x) * figure_rule['k']
-                    step_y = get_sign(move.y) * figure_rule['k']
-                    steps = int(max(move.y, move.x, key=abs) / figure_rule['k'])
+                    step_x = get_sign_zero(move.x) * figure_rule['k']
+                    step_y = get_sign_zero(move.y) * figure_rule['k']
+                    steps = abs(int(max(move.y, move.x, key=abs) / figure_rule['k']))
                     step = V(step_x, step_y)
                 else:
                     steps = 1
@@ -527,19 +609,22 @@ class RuleSet:
                     if self.is_position_valid(new_position):
                         if moves == 'fight':
                             res = self.if_can_beat(figure_id, new_position)
+                            print('can beat')
                         elif figure_rule['move&fight']:
                             res = self.if_can_move_or_beat(figure_id, new_position)
+                            print('can move or beat', res)
                         else:
                             res = self.if_can_move(new_position)
-                        
+                            print('can move')
                         if res:
                             if _print > 1:
                                 self.move_figure(position, new_position, board=board)
                             if _print > 6:
                                 pp.pprint(board)
-                                self.prettify(true_look=True)
+                                self.prettify(board)
+                                self.prettify(board, true_look=True)
                             if _print > 1:
-                                self.prettify()
+                                self.prettify(board)
                                 self.move_figure(new_position, position, board=board)
                             available_moves['to'].append(new_position)
                                 
@@ -679,19 +764,32 @@ class Game():
         return RuleSet().prettify(_board=self.board)
 
     def get_all_figures(self, color=''):
+        figures = {}
         if color == '':
             color = self.current_color
-    
+
         for fig in self.figures:
             if self.figures[fig].color == color:
-                print(self.figures[fig], fig)
+                figures[fig] = self.figures[fig]  
+        return figures
 
 game = Game('white')
 game.get_all_figures('black')
 game.prettify()
 
 
+current_color = 'white'
+# current_color = 'black'
+figures = game.get_all_figures(current_color)
+
+for fig in figures:
+    ruleset.get_available_step(fig, figures[fig], game.board)
 
 
-# ruleset = RuleSet()
-# RuleSet().fig_state()
+game.get_all_figures(current_color)[1]
+
+figure = 1
+ruleset.get_available_step(figure, figures[figure], game.board, figure)
+
+
+
