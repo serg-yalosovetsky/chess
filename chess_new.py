@@ -1,6 +1,9 @@
 from collections import namedtuple
 import pprint
+from termios import TAB0
+from time import time
 from uuid import uuid4
+import copy
 
 from pyparsing import col
 
@@ -70,6 +73,35 @@ class V:
     def print(self):
         print(self.to_print())
 
+class Move():
+    def __init__(self, from_v:V, to_v:V):
+        self.from_v = from_v
+        self.to_v = to_v
+    def __repr__(self) -> str:
+        return f'Move({self.from_v},{self.to_v})'
+    def __eq__(self, move):
+        if (isinstance(move, Move) and 
+            self.from_v == move.from_v and self.to_v == move.to_v):
+            return True
+        else:
+            return False
+    def print(self):
+        print(repr(self))
+
+
+class CurrentColor:
+    def __init__(self, colors):
+        self.colors = colors
+        self.current_color = colors[0]
+    def __repr__(self) -> str:
+        return f'{self.current_color}'
+    def switch(self):
+        for color in self.colors:
+            if color == self.current_color:
+                self.current_color = self.colors[
+                        (self.colors.index(color) + 1) % len(self.colors)
+                    ]
+                return self.current_color
 
 
 def get_cells_between(p1:V, p2:V):
@@ -82,13 +114,6 @@ def get_cells_between(p1:V, p2:V):
         sign_y = get_sign(p1.y, p2.y)
         cells = [V(p1.x + i*sign_x, p1.y + i*sign_y) for i in range(1, abs(p1.x - p2.x))]
     return cells
-
-
-
-
-
-
-
 
 
 def safe_divide(a,b):
@@ -385,11 +410,11 @@ class RuleSet:
         return [row.copy() for row in self.first_board]
 
 
-    def prettify(self, _board=[], true_look=False, hyphens=27, indent=' '):
-        if _board == []:
-            _board = self.board
+    def prettify(self, board=[], true_look=False, hyphens=27, indent=' '):
+        if board == []:
+            board = self.board
         print(' ', '-'*hyphens)
-        for count, row in enumerate(_board):
+        for count, row in enumerate(board):
             if true_look:
                 print(f'{count} | ', end='')
             else:
@@ -410,7 +435,7 @@ class RuleSet:
 
         print(f'    {_str}')
 
-    def if_can_beat(self, figure_id, position, board=[], figures={}):
+    def if_can_beat(self, figure_id:int, position:V, board:list=[], figures:dict={}):
         if not figures:
             figures = self.__figures
         if board == []:
@@ -422,7 +447,7 @@ class RuleSet:
                 return 'beat'
         return False
 
-    def if_can_move_or_beat(self, figure_id, position, board=[], figures={}):
+    def if_can_move_or_beat(self, figure_id:int, position:V, board:list=[], figures:dict={}):
         if not figures:
             figures = self.__figures
         if board == []:
@@ -441,7 +466,7 @@ class RuleSet:
                 return 'beat'
         return False
 
-    def get_position_by_id(self, figure_id, board=[]):
+    def get_position_by_id(self, figure_id:int, board:list=[]):
         if board == []:
             board = self.board
         for count_x, row in enumerate(board):
@@ -451,7 +476,7 @@ class RuleSet:
         return -1
 
 
-    def get_id_by_pos(self, position, board=[]):
+    def get_id_by_pos(self, position:V, board:list=[]):
         if board == []:
             board = self.board
         try:
@@ -459,7 +484,7 @@ class RuleSet:
         except Exception:
             return -1
 
-    def if_can_move(self, position, board=[]):
+    def if_can_move(self, position:V, board:list=[]):
         if board == []:
             board = self.board
         
@@ -483,18 +508,21 @@ class RuleSet:
         else:
             return False
 
-    def move_figure(self, _from, _to, board=[]):
+    def move_figure(self, _from:V=0, _to:V=0, move:Move=None, board:list=[]):
         if board == []:
             board = self.board
         try:
-            if not isinstance(_from, V):
-                if _from == 0:
-                    return False
-                _from = self.get_position_by_id(_from)
-            if not isinstance(_to, V):
-                if _to == 0:
-                    return False
-                _to = self.get_position_by_id(_to)
+            if not isinstance(_from, V) or not isinstance(_to, V):
+                if _from == 0 or _to == 0:
+                    if move is None:
+                        return False
+                    else:
+                        _from = move.from_
+                        _to = move.to_
+                elif not isinstance(_from, V):
+                    _from = self.get_position_by_id(_from)
+                elif not isinstance(_to, V):
+                    _to = self.get_position_by_id(_to)
             print(board[_to.x][_to.y])
             if board[_to.x][_to.y] == 0 or board[_from.x][_from.y] == 0:
                 board[_from.x][_from.y], board[_to.x][_to.y] = \
@@ -520,7 +548,8 @@ class RuleSet:
                 pass
 
 
-    def get_available_step(self, figure_id:int, figures:dict, board, _print=0):
+    def get_available_step(self, figure_id:int, figures:dict, _board:list, _print=0):
+        board = copy.deepcopy(_board)
         figure = figures[figure_id]
         position = self.get_position_by_id(figure_id, board=board)
         available_moves = {}
@@ -530,8 +559,11 @@ class RuleSet:
         figure_rule = self.rules[figure.type]
         moves_list = []
 
-        params = {'figure_id': figure_id, 'board': board, 'figures': figures}
-        if figure_rule.first_move and figure_rule.first_move(params) and self.is_first_move(position):
+        params = {'figure_id': figure_id, 
+                  'board': board, 'figures': figures}
+        if (figure_rule.first_move and 
+                figure_rule.first_move(params) and 
+                self.is_first_move(position, board)):
             moves_list.append('first') 
             # режим действия, если на первом ходу фигуры действуют особые условия
         else:
@@ -725,76 +757,220 @@ class Game():
 
 
 
-# ruleset = RuleSet()
-# ruleset.move_figure(V('c2'), V('c6') )
-# # ruleset.move_figure(21, 13 )
-# # ruleset.move_figure(11, 19)
-# ruleset.prettify()
+ruleset = RuleSet()
 
-# ruleset.get_available_step(12, ruleset.fig_state, ruleset.board, _print=2)
-# ruleset.move_figure(V('c7'), V('c3') )
-
-# pp.pprint(ruleset.board)
-# pp.pprint(ruleset.first_board)
+current_color = 'white'
 
 
-# current_color = 'white'
-
-
-# game = Game('white')
-# game.get_all_figures('black')
-# game.prettify()
-
-
-# current_color = 'white'
-# current_color = 'black'
-# figures = game.get_all_figures(current_color)
-
-# for fig in figures:
-#     ruleset.get_available_step(fig, figures, game.board)
-
-
-# game.get_all_figures(current_color)[1]
-
-# figure = 2
-# figure = 25
-# ruleset.get_available_step(figure, figures, game.board, figure)
+game = Game('white')
+game.get_all_figures('black')
+game.prettify()
 
 
 
-# colors = ['white', 'black']
-# color = current_color
-# moves = {}
-# for color in colors:
-#     figures = game.get_all_figures(color)
-#     for figure_id, figure  in figures.items():
-#         print(figure_id, figure)
-#         moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
-# pp.pprint(moves)
+figure = 2
 
-# for fig_id, move in moves.items():
-#     if move['to']:
-#         print(fig_id, move)
+colors = ['white', 'black']
+color = current_color
+moves = {}
+figures = game.get_all_figures('all')
+figures = game.get_all_figures(colors[0])
 
-# Tree().reinit()
+for figure_id, figure  in figures.items():
+    print(figure_id, figure)
+    moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+pp.pprint(moves)
 
-# t = Tree()
-# trees = {}
-# for fig_id, move in moves.items():
-#     if move['to']:
-#         trees[Tree(t).id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
-#         print(fig_id, move)
-
-# pprint.pprint(t.childs)
-# pprint.pprint(trees)
-
-# t.id
-# t.search('d1cf5a5301c74f51936aea8deb14a0dc')
-# t.get_node_path('d1cf5a5301c74f51936aea8deb14a0dc')
+for fig_id, move in moves.items():
+    if move['to']:
+        print(fig_id, move)
 
 
 
-# # ruleset = RuleSet()
-# # figures = ruleset.fig_state
-# # figure_id = 20
-# # ruleset.get_available_step(figure_id, figures, ruleset._board,  _print=2)
+
+Tree().reinit()
+
+t = Tree()
+trees = {}
+colors = ['white', 'black']
+cc = CurrentColor(colors=colors)
+t0 = time()
+while t<2:
+    for figure_id, figure in figures.items():
+        print(figure_id, figure)
+        moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+    pp.pprint(moves)
+    for fig_id, move in moves.items():
+        if move['to']:
+            _tree = Tree(t).id
+            trees[_tree.id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
+            print(fig_id, move)
+
+    t = time() - t0
+    
+
+
+pprint.pprint(t.childs)
+pprint.pprint(trees)
+
+
+
+
+
+moves = {}
+for figure_id, figure in figures.items():
+    print(figure_id, figure)
+    moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+
+moves
+
+
+game = Game('white')
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# Defining a Class
+class GraphVisualization:
+   
+    def __init__(self):
+          
+        # visual is a list which stores all 
+        # the set of edges that constitutes a
+        # graph
+        self.visual = []
+          
+    # addEdge function inputs the vertices of an
+    # edge and appends it to the visual list
+    def addEdge(self, a, b):
+        temp = [a, b]
+        self.visual.append(temp)
+          
+    # In visualize function G is an object of
+    # class Graph given by networkx G.add_edges_from(visual)
+    # creates a graph with a given list
+    # nx.draw_networkx(G) - plots the graph
+    # plt.show() - displays the graph
+    def visualize(self):
+        G = nx.Graph()
+        G.add_edges_from(self.visual)
+        nx.draw_networkx(G)
+        plt.show()
+  
+# Driver code
+G = GraphVisualization()
+G.addEdge(t.id[:10], 2)
+G.addEdge(1, 0)
+G.addEdge(1, 2)
+G.addEdge(1, 3)
+G.addEdge(5, 3)
+G.addEdge(3, 4)
+
+G.visualize()
+
+print(t.id[:10])
+_l = []
+for _t in t.childs:
+    print(t.id[:10], _t.id[:10])
+    _l.append((t.id[:10], _t.id[:10]))
+    for __t in _t.childs:
+        _l.append((_t.id[:10], __t.id[:10]))
+        print(_t.id[:10], __t.id[:10])
+
+_l
+s = '''c15915ee1a 3c3b700e50
+... c15915ee1a ada8c4290e
+... c15915ee1a b36cdf672d
+... c15915ee1a da34a29aea
+... c15915ee1a a624f92b3b
+... c15915ee1a b06bc2e267
+... c15915ee1a 3b9a6b4bb6'''
+_l = []
+l = s.split('\n')
+for i in _l:
+    G.addEdge(i[0], i[1])
+
+
+def first_round(game, color):
+    figures = game.get_all_figures(color)
+    board = copy.deepcopy(game.board)
+    t = Tree()
+    trees = {}
+    moves = {}
+    for figure_id, figure in figures.items():
+        print(figure_id, figure)
+        moves[figure_id] = ruleset.get_available_step(figure_id, figures, board)
+
+    for fig_id, move in moves.items():
+        if move['to']:
+            for move_to in move['to']:
+                print(fig_id, move['from'], move_to)
+                board = ruleset.move_figure(move['from'], move_to, board)
+                # print('1 st board')
+                ruleset.prettify(board)
+                old_position = figures[fig_id].position 
+                tree = Tree(t)
+                trees[tree.id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
+                figures[fig_id] = Fig_State(figures[fig_id].type, figures[fig_id].color, move_to) 
+                _trees = second_round(figures, board, tree)
+
+                trees.update(_trees)
+
+                figures[fig_id] = Fig_State(figures[fig_id].type, figures[fig_id].color, old_position) 
+
+                board = ruleset.move_figure(move_to, move['from'], board)
+    return trees, t
+
+trees, t = first_round(game, colors[0])
+
+t.childs[2]
+
+for _t in t.childs:
+    
+    print(_t)    
+    # print(_t.childs)    
+    print(len(_t.childs))
+
+
+len(t.childs)
+tree.childs[1]
+
+
+def second_round(figures, board, tree):
+    _board = copy.deepcopy(board)
+    _moves = {}
+    trees = {}
+    for figure_id, figure in figures.items():
+        print(figure_id, figure)
+        _moves[figure_id] = ruleset.get_available_step(figure_id, figures, _board)
+    # board0 = game.board
+    # board = _board
+    for _fig_id, _move in _moves.items():
+        if _move['to']:
+            for _move_to in _move['to']:
+                print(_fig_id, _move['from'], _move_to)
+
+                _board = ruleset.move_figure(_move['from'], _move_to, board= _board)
+                print('2 st board')
+                _tree = Tree(tree)
+                trees[_tree.id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
+                ruleset.prettify(_board)
+                print('\n\n\n')
+                _board = copy.deepcopy(board)
+    return trees
+
+figures[1]
+
+ruleset.prettify(_board)
+
+orig = {
+   'A': 1,
+   'B': 2,
+   'C': 3,
+}
+
+extra = {
+   'D': 4,
+   'E': 5,
+}
+
+orig.update(extra)
