@@ -39,13 +39,13 @@ def test_ruleset_pawn_20():
     ruleset = RuleSet()   
     figures = ruleset.fig_state
     figure_id = 20
-    assert ruleset.get_available_step(figure_id, figures, ruleset.board,
+    assert ruleset.get_available_steps(figure_id, figures, ruleset.board,
         _print=2) == {'to': [V(2,3), V(3,3)], 'from': V(1,3), 'score': {}}
 
     ruleset.move_figure(V('c2'), V('c6'), ruleset._board )
     # ruleset.prettify(ruleset._board)
     # ruleset._board
-    assert ruleset.get_available_step(figure_id, figures, ruleset._board,
+    assert ruleset.get_available_steps(figure_id, figures, ruleset._board,
         _print=2) == {'to': [V(2,3), V(3,3), V(2,2)], 'from': V(1,3), 'score': {'c6':10}}
 
 
@@ -53,11 +53,11 @@ def test_ruleset_pawn_12():
     ruleset = RuleSet()   
     figures = ruleset.fig_state
     figure_id = 12
-    assert ruleset.get_available_step(figure_id, figures, ruleset._board,
+    assert ruleset.get_available_steps(figure_id, figures, ruleset._board,
         _print=2) == {'to': [V(5,3), V(4,3)], 'from': V(6,3), 'score': {}}
     ruleset.move_figure(V('c7'), V('c3'), ruleset._board)
 
-    assert ruleset.get_available_step(figure_id, figures, ruleset._board,
+    assert ruleset.get_available_steps(figure_id, figures, ruleset._board,
         _print=2) == {'to': [V(5,3), V(4,3), V(5,2)], 'from': V(6,3), 'score': {'c3':10}}
 
 
@@ -65,12 +65,12 @@ def test_ruleset_knight():
     ruleset = RuleSet()   
     figures = ruleset.fig_state
     figure_id = 7
-    assert ruleset.get_available_step(figure_id, figures, ruleset._board,
+    assert ruleset.get_available_steps(figure_id, figures, ruleset._board,
         _print=2) == {'to': [V(5,5), V(5,7)], 'from': V(7,6), 'score': {}}
 
     ruleset.move_figure(21, 13, ruleset._board)
 
-    assert ruleset.get_available_step(figure_id, figures, ruleset._board,
+    assert ruleset.get_available_steps(figure_id, figures, ruleset._board,
         _print=2) == {'to': [V(5,5), V(5,7), V(6,4)], 'from': V(7,6), 'score': {'e2': 10}}
 
 
@@ -126,7 +126,7 @@ def test_ruleset_all():
     for color in colors:
         figures = game.get_all_figures(color)
         for figure_id, figure  in figures.items():
-            moves[figure_id] = ruleset.get_available_step(figure_id, figures, ruleset._board)
+            moves[figure_id] = ruleset.get_available_steps(figure_id, figures, ruleset._board)
     assert moves == moves_example
 
 

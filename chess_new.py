@@ -4,7 +4,7 @@ from termios import TAB0
 from time import time
 from uuid import uuid4
 import copy
-
+import time
 from pyparsing import col
 
 
@@ -548,7 +548,7 @@ class RuleSet:
                 pass
 
 
-    def get_available_step(self, figure_id:int, figures:dict, _board:list, _print=0):
+    def get_available_steps(self, figure_id:int, figures:dict, _board:list, _print=0):
         board = copy.deepcopy(_board)
         figure = figures[figure_id]
         position = self.get_position_by_id(figure_id, board=board)
@@ -778,7 +778,7 @@ figures = game.get_all_figures(colors[0])
 
 for figure_id, figure  in figures.items():
     print(figure_id, figure)
-    moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+    moves[figure_id] = ruleset.get_available_steps(figure_id, figures, game.board)
 pp.pprint(moves)
 
 for fig_id, move in moves.items():
@@ -794,11 +794,13 @@ t = Tree()
 trees = {}
 colors = ['white', 'black']
 cc = CurrentColor(colors=colors)
+cc.switch()
+cc
 t0 = time()
 while t<2:
     for figure_id, figure in figures.items():
         print(figure_id, figure)
-        moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+        moves[figure_id] = ruleset.get_available_steps(figure_id, figures, game.board)
     pp.pprint(moves)
     for fig_id, move in moves.items():
         if move['to']:
@@ -820,7 +822,7 @@ pprint.pprint(trees)
 moves = {}
 for figure_id, figure in figures.items():
     print(figure_id, figure)
-    moves[figure_id] = ruleset.get_available_step(figure_id, figures, game.board)
+    moves[figure_id] = ruleset.get_available_steps(figure_id, figures, game.board)
 
 moves
 
@@ -889,39 +891,121 @@ l = s.split('\n')
 for i in _l:
     G.addEdge(i[0], i[1])
 
+board = copy.deepcopy(game.board)
+# cc.current_color
 
-def first_round(game, color):
-    figures = game.get_all_figures(color)
-    board = copy.deepcopy(game.board)
-    t = Tree()
+
+def start_game(game, color: CurrentColor, max_time):
+    # figures: list[Fig_State] = game.get_all_figures(color.current_color)
+    tree = Tree()
     trees = {}
+    board = copy.deepcopy(game.board)
+
+    start_time = time.time()
+    _time = {'start_time': start_time, 'end_time': max_time}
+    _trees = next_round(board, color, tree, _time)
+    trees.update(_trees)
+    print(f'time is spend: {time.time() - _time["start_time"]}')
+
+    # board = copy.deepcopy(game.board)
+    # trees = {}
+    # moves = {}
+    # for figure_id, figure in figures.items():
+    #     print('calc available moves ', figure_id, figure)
+    #     moves[figure_id] = ruleset.get_available_steps(figure_id,
+    #                                                    figures,
+    #                                                    board)
+
+    # for fig_id, move in moves.items():
+    #     if move['to']:
+    #         for move_to in move['to']:
+    #             print('available moves ', fig_id, move['from'], move_to)
+
+    #             board = ruleset.move_figure(move['from'], move_to, board)
+
+    #             ruleset.prettify(board)
+
+    #             old_position = figures[fig_id].position
+
+    #             tree = Tree(t)
+    #             trees[tree.id] = {'fig_id': fig_id,
+    #                               'move': move,
+    #                               'figure': figures[fig_id]}
+
+    #             figures[fig_id] = Fig_State(figures[fig_id].type,
+    #                                         figures[fig_id].color,
+    #                                         move_to)
+
+    #             color.switch()
+    #             _trees = next_round(board, color, tree)
+    #             trees.update(_trees)
+
+    #             figures[fig_id] = Fig_State(figures[fig_id].type,
+    #                                         figures[fig_id].color,
+    #                                         old_position)
+
+    #             board = ruleset.move_figure(move_to, move['from'], board)
+    return trees, tree
+
+
+def next_round(board, color, tree, _time):
+    _board = copy.deepcopy(board)
+    figures: list[Fig_State] = game.get_all_figures(color.current_color)
     moves = {}
+    trees = {}
+
     for figure_id, figure in figures.items():
         print(figure_id, figure)
-        moves[figure_id] = ruleset.get_available_step(figure_id, figures, board)
+        moves[figure_id] = ruleset.get_available_steps(figure_id,
+                                                        figures,
+                                                        _board)
 
+    if (time.time() - _time['start_time']) > _time['end_time']:
+        return trees
+    else:
+        print(f'time is spend: {time.time() - _time["start_time"]}')
     for fig_id, move in moves.items():
         if move['to']:
             for move_to in move['to']:
-                print(fig_id, move['from'], move_to)
-                board = ruleset.move_figure(move['from'], move_to, board)
-                # print('1 st board')
-                ruleset.prettify(board)
-                old_position = figures[fig_id].position 
-                tree = Tree(t)
-                trees[tree.id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
-                figures[fig_id] = Fig_State(figures[fig_id].type, figures[fig_id].color, move_to) 
-                _trees = second_round(figures, board, tree)
+                print('available moves ', fig_id, move['from'], move_to)
+
+                _board = ruleset.move_figure(move['from'], move_to, board=_board)
+
+                old_position = figures[fig_id].position
+
+                _tree = Tree(tree)
+                trees[_tree.id] = {'fig_id': fig_id,
+                                   'move': move,
+                                   'figure': figures[fig_id]}
+
+                figures[fig_id] = Fig_State(figures[fig_id].type,
+                                            figures[fig_id].color,
+                                            move_to)
+
+                ruleset.prettify(_board)
+
+                color.switch()
+
+                if (time.time() - _time['start_time']) < _time['end_time']:
+                    _trees = next_round(board, color, tree, _time)
+                else:
+                    print('time is out')
+                    _trees = {}
 
                 trees.update(_trees)
 
-                figures[fig_id] = Fig_State(figures[fig_id].type, figures[fig_id].color, old_position) 
+                figures[fig_id] = Fig_State(figures[fig_id].type,
+                                            figures[fig_id].color,
+                                            old_position)
+                _board = ruleset.move_figure(move_to, move['from'], _board)
+                print('\n\n\n')
+    return trees
 
-                board = ruleset.move_figure(move_to, move['from'], board)
-    return trees, t
 
-trees, t = first_round(game, colors[0])
-
+cc.switch()
+print('current color', cc.current_color)
+trees, t = start_game(game, cc, 1)
+t.childs[639]
 t.childs[2]
 
 for _t in t.childs:
@@ -932,33 +1016,13 @@ for _t in t.childs:
 
 
 len(t.childs)
+tree = Tree(self)
+
 tree.childs[1]
 
 
-def second_round(figures, board, tree):
-    _board = copy.deepcopy(board)
-    _moves = {}
-    trees = {}
-    for figure_id, figure in figures.items():
-        print(figure_id, figure)
-        _moves[figure_id] = ruleset.get_available_step(figure_id, figures, _board)
-    # board0 = game.board
-    # board = _board
-    for _fig_id, _move in _moves.items():
-        if _move['to']:
-            for _move_to in _move['to']:
-                print(_fig_id, _move['from'], _move_to)
-
-                _board = ruleset.move_figure(_move['from'], _move_to, board= _board)
-                print('2 st board')
-                _tree = Tree(tree)
-                trees[_tree.id] = {'fig_id': fig_id, 'move': move, 'figure':figures[fig_id]}
-                ruleset.prettify(_board)
-                print('\n\n\n')
-                _board = copy.deepcopy(board)
-    return trees
-
 figures[1]
+_board = copy.deepcopy(board)
 
 ruleset.prettify(_board)
 
